@@ -1,0 +1,2 @@
+# KeServiceDescriptorTableLeak
+KeServiceDescriptorTable retrieval from KiSystemCall64Shadow
