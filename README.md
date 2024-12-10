@@ -3,7 +3,7 @@
 
 ### Context 
 
-While crafting a kernel driver that intercepts system calls (👀), I realized that I needed at some point the SSDT to resolve the name of intercepted system calls from their ID. The problem is that the Windows kernel no longer exports the ``KeServiceDescriptorTable`` function on its x64 versions for some reasons, so it's impossible to obtain its address with  ``MmGetSystemRoutineAddress`` or ``RtlFindExportedRoutineByName``. I therefore looked for a "runtime" way of resolving this address in a runtime and universally compatible way with several versions of Windows. 
+While crafting a kernel driver that intercepts system calls (👀), I realized that I needed at some point the SSDT to resolve the name of intercepted system calls from their ID. The problem is that the Windows kernel no longer exports the ``KeServiceDescriptorTable`` function on its x64 versions for obscure reasons, so it's impossible to obtain its address with  ``MmGetSystemRoutineAddress`` or ``RtlFindExportedRoutineByName``. I therefore looked for a trick to resolve this address in a runtime and universally compatible way with several versions of the kernel. 
 
 I came across the following simple technique, based on a supplied address: ``KiSystemCall64Shadow``, the system call handler found at MSR ``c000082``.
 
@@ -84,7 +84,7 @@ ULONGLONG LeakKiSystemServiceUser() {
 }
 ```
 
-This function exposes various non-exported functions that are relevant, including ``KeServiceDescriptorTable``
+``KiSystemServiceUser`` exposes various non-exported functions offsets that are relevant, including ``KeServiceDescriptorTable``
 
 ```
 0: kd> u nt!KiSystemServiceUser L100
@@ -154,21 +154,25 @@ ULONGLONG LeakKeServiceDescriptorTable(ULONGLONG kiSystemUser) {
 }
 ```
 
-The driver code provided in this repo applies this method + associates routines exported by the kernel with their Syscall ID:
+The driver code provided in this repo applies this method + associates **routines that are exported by the kernel** with their Syscall ID:
 
 ```
-0: kd> g
-[+] KiSystemServiceUser: FFFFF8044D41224D
-[+] KeServiceDescriptorTable: FFFFF8044DE018C0
+1: kd> ed KD_DEFAULT_MASK 0xFFFFFFFF
+1: kd> g
+[+] KiSystemServiceUser: FFFFF80330C1224D
+[+] KeServiceDescriptorTable: FFFFF803316018C0
 [+] NumberOfServices: 473
-		[4] - NtWaitForSingleObject - FFFFF8044D632FF0
-		[6] - NtReadFile - FFFFF8044D5F8520
-		[7] - NtDeviceIoControlFile - FFFFF8044D6314E0
-		[8] - NtWriteFile - FFFFF8044D5F77A0
-		[13] - NtSetInformationThread - FFFFF8044D6303C0
-		[14] - NtSetEvent - FFFFF8044D6EE970
-		[15] - NtClose - FFFFF8044D633140
-		[17] - NtQueryInformationFile - FFFFF8044D62F640
+		[4] - NtWaitForSingleObject - FFFFF80330E32FF0
+		[6] - NtReadFile - FFFFF80330DF8520
+		[7] - NtDeviceIoControlFile - FFFFF80330E314E0
+		[8] - NtWriteFile - FFFFF80330DF77A0
+		[13] - NtSetInformationThread - FFFFF80330E303C0
+		[14] - NtSetEvent - FFFFF80330EEE970
+		[15] - NtClose - FFFFF80330E33140
+		[17] - NtQueryInformationFile - FFFFF80330E2F640
+		[20] - NtFindAtom - FFFFF80330E549F0
+
+		{...}
 ```
 
 In the hope that this simple trick will help anyone expressing the need to access the SSDT in runtime mode directly from their driver :)
