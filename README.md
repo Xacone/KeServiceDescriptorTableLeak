@@ -5,7 +5,7 @@
 
 While crafting a kernel driver that intercepts system calls (👀), I realized that I needed at some point the SSDT to resolve the name of intercepted system calls from their ID. The problem is that the Windows kernel no longer exports the ``KeServiceDescriptorTable`` function on its x64 versions for obscure reasons, so it's impossible to obtain its address with  ``MmGetSystemRoutineAddress`` or ``RtlFindExportedRoutineByName``. I therefore looked for a trick to resolve this address in a runtime and universally compatible way with several versions of the kernel. 
 
-I came across the following simple technique, based on a supplied address: ``KiSystemCall64Shadow``, the system call handler found at MSR ``c000082``.
+I came across the following simple technique, based on a supplied address: ``KiSystemCall64Shadow``, the Meltdown-related system call handler found at MSR ``c000082``.
 
 ```
 0: kd> rdmsr c0000082
@@ -33,7 +33,7 @@ fffff804`4da1a425 e9237e9fff      jmp     nt!KiSystemServiceUser (fffff804`4d412
 
 The ``KiSystemServiceUser`` address can thus be resolved by extracting the relative offset from the jmp opcodes ``e9237e9fff`` knowing that the jmp opcode is ``e9``.
 
-This same jump is also performed in Windows versions 11 23H2 syscall handler:
+This same jump is also performed in Windows 11 23H2 syscall handler:
 
 ![](image-1.png)
 
